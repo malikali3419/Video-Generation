@@ -29,7 +29,7 @@ class SpriteVideoGeneration:
     """
 
     def __init__(self, api_key: str, organization: str, gemini_api_key: str, default_size: str = "1024x1024",
-                 default_quality: str = "standard"):
+                 default_quality: str = "standard", max_tries: int =1):
 
         """
         Initialize the SpriteVideoGeneration.
@@ -59,6 +59,8 @@ class SpriteVideoGeneration:
         self.sprite_width = 0
         self.sprite_height = 0
         self.target_duration = 20
+        self.max_tries = max_tries
+        self.utils = SenitizePath()
         self.sprites = []
 
     def get_image_url(self, prompt: str, size: str, quality: str) -> str:
@@ -74,7 +76,7 @@ class SpriteVideoGeneration:
         Returns:
             str: Image URL.
         """
-        for retry in range(3):
+        for retry in range(self.max_tries):
             try:
                 response = self.client.images.generate(
                     model="dall-e-3",
@@ -104,7 +106,7 @@ class SpriteVideoGeneration:
         Returns:
             str: File path of the saved image.
         """
-        prompt = SenitizePath().senitize_path(prompt)
+        prompt = self.utils.senitize_path(prompt)
         if not os.path.exists(save_directory):
             os.makedirs(save_directory)
 
@@ -139,7 +141,7 @@ class SpriteVideoGeneration:
             str: File path of the saved image.
         """
 
-        prompt = SenitizePath().senitize_path(prompt)
+        prompt = self.utils.senitize_path(prompt)
         size = size or self.default_size
         quality = quality or self.default_quality
         image_url = self.get_image_url(prompt, size, quality)
@@ -188,7 +190,7 @@ class SpriteVideoGeneration:
 
         if not self.sprites:
             raise ValueError("No sprites found in the sprite sheet.")
-        output_path = SenitizePath().senitize_path(output_path)
+        output_path = self.utils.senitize_path(output_path)
         self.sprites[0].save(
             output_path,
             save_all=True,
@@ -198,23 +200,23 @@ class SpriteVideoGeneration:
             loop=loop
         )
     
-    def generate_markdown(self, gemini_prompt, image_path):
-
+    def get_sprite_details(self, gemini_prompt, image_path):
         """
-        Generate Markdown content based on a prompt and an image.
+        Generate Markdown content based on a prompt and an image with retries GEMINI.
 
         Parameters:
+            - gemini_prompt (str): The Gemini prompt for content generation.
             - image_path (str): The path to the image used for content generation.
 
         Returns:
-            str: Generated Markdown content ( rows and columns ).
+            tuple: Generated rows and columns.
 
         Raises:
-            Any specific exceptions that might be raised during image processing or content generation.
+            Exception: Raises the last encountered exception if max_attempts are exhausted.
         """
-        for attempt in range(4):
+        for attempt in range(self.max_tries):
             try:
-                image_path = SenitizePath().senitize_path(image_path)
+                image_path = self.utils.senitize_path(image_path)
                 img = Image.open(image_path)
                 response = self.model.generate_content([gemini_prompt, img], stream=True)
                 response.resolve()
@@ -225,10 +227,10 @@ class SpriteVideoGeneration:
                 return rows, columns
             except Exception as e:
                 print(f"Attempt {attempt} failed. Error: {e}")
-                if attempt == 4:
+                if attempt == self.max_tries:
                     raise
-            
-    def convert(self, input_gif, output_path):
+
+    def loop_and_convert_into_mp4(self, input_gif, output_path):
 
         """
         Convert a GIF file to an MP4 file with a specified target duration.
@@ -245,8 +247,8 @@ class SpriteVideoGeneration:
 
         try:
 
-            input_gif = SenitizePath().senitize_path(input_gif)
-            output_path = SenitizePath().senitize_path(output_path)
+            input_gif = self.utils.senitize_path(input_gif)
+            output_path = self.utils.senitize_path(output_path)
             original_clip = VideoFileClip(input_gif)
             original_duration = original_clip.duration
             self.output_mp4 = output_path
@@ -283,20 +285,20 @@ class SpriteVideoGeneration:
         """
 
         sprite_path = self.generate_and_download_sprite(prompt, save_directory)
-        rows, cols = self.generate_markdown(gemini_prompt, sprite_path)
+        rows, cols = self.get_sprite_details(gemini_prompt, sprite_path)
         self.rows = rows
         self.cols = cols
         self.spritesheet_path = sprite_path
         self.create_animation(os.path.join(
             save_directory + "/" + prompt, f"{prompt}.gif"), duration=animation_duration, loop=animation_loop)
-        self.convert(os.path.join(
+        self.loop_and_convert_into_mp4(os.path.join(
             save_directory + "/" + prompt, f"{prompt}.gif"),
             (save_directory + "/" + prompt + f"/Extended_{prompt}.mp4"))
 
     def merge_and_resize_videos(self, video_paths, output_path, target_width, target_height):
         clips = []
         for path in video_paths:
-            path = SenitizePath().senitize_path(path=path)
+            path = self.utils.senitize_path(path=path)
             clip = VideoFileClip(path).resize(newsize=(target_width, target_height))
             clips.append(clip)
 

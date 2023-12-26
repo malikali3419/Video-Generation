@@ -25,10 +25,11 @@ def main():
     videos_path = []
     for item in video_json:
         sprite_video_generator = SpriteVideoGeneration(
-            api_key, organization,
-            gemini_api_key,
-            "1024x1024",
-            "standard"
+            api_key=api_key, organization=organization,
+            gemini_api_key=gemini_api_key,
+            default_size="1024x1024",
+            default_quality="standard",
+            max_tries=3
         )
         sprite_video_generator.generate_sprite_and_animation(
             prompt=item.get('video_prompt'),
