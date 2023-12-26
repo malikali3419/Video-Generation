@@ -9,6 +9,7 @@ __pycache__/
 # Distribution / packaging
 .Python
 build/
+generated_sprites/
 develop-eggs/
 dist/
 downloads/
@@ -19,6 +20,7 @@ lib64/
 parts/
 sdist/
 var/
+.idea/
 wheels/
 share/python-wheels/
 *.egg-info/
@@ -60,7 +62,7 @@ cover/
 local_settings.py
 db.sqlite3
 db.sqlite3-journal
-
+.DS_Store
 # Flask stuff:
 instance/
 .webassets-cache
